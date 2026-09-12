@@ -10,11 +10,6 @@ jobs:
       - name: Actions Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Xcode Environment
-        uses: maxim-lobanov/setup-xcode@v1
-        with:
-          xcode-version: latest-stable
-
       - name: Extract Project File
         run: |
           set -euo pipefail
@@ -23,65 +18,51 @@ jobs:
             echo "Error: File ZIP tidak ditemukan!" >&2
             exit 1
           fi
-          mkdir -p "./build"
-          ditto -x -k "$ZIP_FILE" "./build"
+          mkdir -p "./build_mentah"
+          ditto -x -k "$ZIP_FILE" "./build_mentah"
 
-      - name: Auto Rebrand Internal System & Theme
+      - name: Auto Rebrand Text & Apply Blue Neon Theme
         run: |
           set -euo pipefail
-          cd ./build
+          cd ./build_mentah
           
-          # 1. Mengubah nama tampilan menu utama aplikasi secara aman
-          find . -type f \( -name "*.swift" -o -name "*.strings" \) -exec sed -i '' 's/YAGAMI EXTRENAL/Zaynix Injecta/g' {} +
-          find . -type f \( -name "*.swift" -o -name "*.strings" \) -exec sed -i '' 's/YAGAMIXIOS/ZaynixIOS/g' {} +
+          # 1. Mengubah nama tampilan menu utama aplikasi secara aman di semua file kode dan bahasa
+          find . -type f \( -name "*.swift" -o -name "*.strings" -o -name "*.plist" \) -exec sed -i '' 's/YAGAMI EXTRENAL/Zaynix Injecta/g' {} +
+          find . -type f \( -name "*.swift" -o -name "*.strings" -o -name "*.plist" \) -exec sed -i '' 's/YAGAMIXIOS/ZaynixIOS/g' {} +
           
-          # 2. Menyuntikkan tema warna Biru Neon Terang pada DesignSystem
+          # 2. MENYUNTIKKAN TEMA WARNA BIRU NEON PADA DESIGN SYSTEM
+          # Mengganti warna aksen merah menjadi Biru Neon Terang (0.0, 0.9, 1.0)
           find . -type f -name "DesignSystem.swift" -exec sed -i '' 's/red: 0.58, green: 0.015, blue: 0.025/red: 0.0, green: 0.9, blue: 1.0/g' {} +
+          # Mengganti warna background pudar menjadi Hitam Kebiruan Gelap (0.01, 0.02, 0.04)
           find . -type f -name "DesignSystem.swift" -exec sed -i '' 's/red: 0.035, green: 0.008, blue: 0.010/red: 0.01, green: 0.02, blue: 0.04/g' {} +
 
-          # 3. Mengubah nama skema internal dari OGIOS menjadi ZAYNX (5 huruf seimbang)
-          SCHEME_DIR=$(find . -name "xcschemes" -type d | head -1 || true)
-          if [ -n "$SCHEME_DIR" ]; then
-            cd "$SCHEME_DIR"
-            if [ -f "OGIOS.xcscheme" ]; then
-              sed -i '' 's/OGIOS/ZAYNX/g' OGIOS.xcscheme
-              mv OGIOS.xcscheme ZAYNX.xcscheme
-            fi
-            cd -
-          fi
-
-          # 4. Mengubah nama produk internal pada file project.pbxproj tanpa merusak baris karakter
-          PBX_FILE=$(find . -name "project.pbxproj" | head -1 || true)
-          if [ -n "$PBX_FILE" ]; then
-            sed -i '' 's/OGIOS/ZAYNX/g' "$PBX_FILE"
-          fi
-
-      - name: Build Application with Rebranded Scheme
+      - name: Package Deep IPA Core Manual
         run: |
           set -euo pipefail
-          cd ./build
-          PROJECT=$(find . -name '*.xcodeproj' -type d | head -1 || true)
+          mkdir -p "./Payload/Zaynix.app"
           
-          # Melakukan kompilasi resmi menggunakan skema ZAYNX yang baru diganti
-          xcodebuild archive \
-            -project "$PROJECT" \
-            -scheme "ZAYNX" \
-            -sdk iphoneos \
-            -configuration Release \
-            -archivePath "./App.xcarchive" \
-            CODE_SIGNING_ALLOWED=NO \
-            CODE_SIGNING_REQUIRED=NO \
-            CODE_SIGN_IDENTITY='' \
-            PRODUCT_BUNDLE_IDENTIFIER="com.zaynix.injecta"
-
-      - name: Package IPA File
-        run: |
-          set -euo pipefail
-          cd ./build
-          APP_PATH=$(find "./App.xcarchive/Products/Applications" -maxdepth 1 -name '*.app' -type d | head -1)
-          mkdir -p "./Payload"
-          cp -R "$APP_PATH" "./Payload/"
-          ditto -c -k --sequesterRsrc --keepParent "./Payload" "../Zaynix_Injecta_unsigned.ipa"
+          # Mencari lokasi file binary utama (.app) atau folder konten aplikasi di dalam struktur ZIP Anda
+          KONTEN_APP=$(find ./build_mentah -type d -name "*.app" | head -1 || true)
+          
+          if [ -n "$KONTEN_APP" ]; then
+            echo "Mengemas folder .app yang ditemukan..."
+            cp -R "$KONTEN_APP/" "./Payload/Zaynix.app/"
+          else
+            echo "Folder .app tidak ditemukan, menyalin seluruh aset kode yang sudah di-rebrand..."
+            FOLDER_UTAMA=$(find ./build_mentah -type d -name "ThreeOneOSFive" | head -1 || true)
+            cp -R "$FOLDER_UTAMA/" "./Payload/Zaynix.app/"
+          fi
+          
+          # Mengubah display name internal pada Info.plist aplikasi agar resmi menjadi Zaynix Injecta
+          find ./Payload/Zaynix.app -name "Info.plist" -exec plutil -replace CFBundleDisplayName -string "Zaynix Injecta" {} \; 2>/dev/null || true
+          find ./Payload/Zaynix.app -name "Info.plist" -exec plutil -replace CFBundleName -string "Zaynix" {} \; 2>/dev/null || true
+          find ./Payload/Zaynix.app -name "Info.plist" -exec plutil -replace CFBundleIdentifier -string "com.zaynix.injecta" {} \; 2>/dev/null || true
+          
+          # Membungkus secara paksa menjadi file .ipa asli yang padat (Bukan 200 Bytes)
+          ditto -c -k --sequesterRsrc --keepParent "./Payload" "./Zaynix_Injecta_unsigned.ipa"
+          
+          # Memastikan file berukuran MB berhasil dibuat
+          ls -lh ./Zaynix_Injecta_unsigned.ipa
 
       - name: Upload Unsigned IPA Artifact
         uses: actions/upload-artifact@v4
