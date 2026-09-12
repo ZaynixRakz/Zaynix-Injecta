@@ -10,11 +10,6 @@ jobs:
       - name: Actions Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Xcode Environment
-        uses: maxim-lobanov/setup-xcode@v1
-        with:
-          xcode-version: latest-stable
-
       - name: Extract Project File
         run: |
           set -euo pipefail
@@ -30,7 +25,7 @@ jobs:
         run: |
           cd ./build
           
-          # 1. MENGHAPUS TOTAL FILE SISTEM YANG RUSAK (DENGAN PROTEKSI AMAN JIKA FILE TIDAK ADA)
+          # 1. Menghapus total file sistem Xcode bawaan yang rusak
           find . -name "project.pbxproj" -exec rm -f {} \; 2>/dev/null || true
           find . -name "*.xcodeproj" -type d -exec rm -rf {} \; 2>/dev/null || true
           
@@ -38,33 +33,52 @@ jobs:
           find . -type f \( -name "*.swift" -o -name "*.strings" -o -name "*.plist" \) -exec sed -i '' 's/YAGAMI EXTRENAL/Zaynix Injecta/g' {} + 2>/dev/null || true
           find . -type f \( -name "*.swift" -o -name "*.strings" -o -name "*.plist" \) -exec sed -i '' 's/YAGAMIXIOS/ZaynixIOS/g' {} + 2>/dev/null || true
           
-          # 3. MENYUNTIKKAN TEMA WARNA BIRU NEON PADA DESIGN SYSTEM
+          # 3. Menyuntikkan tema warna Biru Neon pada DesignSystem
           find . -type f -name "DesignSystem.swift" -exec sed -i '' 's/red: 0.58, green: 0.015, blue: 0.025/red: 0.0, green: 0.9, blue: 1.0/g' {} + 2>/dev/null || true
           find . -type f -name "DesignSystem.swift" -exec sed -i '' 's/red: 0.035, green: 0.008, blue: 0.010/red: 0.01, green: 0.02, blue: 0.04/g' {} + 2>/dev/null || true
 
-          # 4. MEMBUAT ULANG STRUKTUR PAYLOAD APLIKASI UTUH YANG SEHAT
-          mkdir -p "../Payload/Zaynix.app"
+          # 4. Membuat struktur folder Payload resmi dengan ekstensi .app (Wajib Apple)
+          mkdir -p "../Payload/ThreeOneOSFive.app"
           
           # Mencari lokasi folder utama kode program di mana pun letaknya berada di dalam ZIP Anda
           FOLDER_UTAMA=$(find . -type d -name "ThreeOneOSFive" | head -1 || true)
           if [ -n "$FOLDER_UTAMA" ]; then
-            cp -R "$FOLDER_UTAMA/" "../Payload/Zaynix.app/"
+            cp -R "$FOLDER_UTAMA/" "../Payload/ThreeOneOSFive.app/"
           else
-            cp -R * ../Payload/Zaynix.app/ 2>/dev/null || true
+            cp -R * ../Payload/ThreeOneOSFive.app/ 2>/dev/null || true
           fi
           
-          # 5. MENYUNTIKKAN BINARY DAN CONFIG TERBARU SECARA OTOMATIS
-          cd ../Payload/Zaynix.app
-          find . -name "Info.plist" -exec plutil -replace CFBundleDisplayName -string "Zaynix Injecta" {} \; 2>/dev/null || true
-          find . -name "Info.plist" -exec plutil -replace CFBundleName -string "Zaynix" {} \; 2>/dev/null || true
-          find . -name "Info.plist" -exec plutil -replace CFBundleIdentifier -string "com.zaynix.injecta" {} \; 2>/dev/null || true
-          find . -name "Info.plist" -exec plutil -replace CFBundleExecutable -string "Zaynix" {} \; 2>/dev/null || true
-          find . -name "Info.plist" -exec plutil -replace CFBundlePackageType -string "APPL" {} \; 2>/dev/null || true
+          # 5. MEMBUAT DAN MENULIS ULANG FILE INFO.PLIST DI FOLDER UTAMA AGAR GBOX SUKSES SIGN
+          cat <<EOF > ../Payload/ThreeOneOSFive.app/Info.plist
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://apple.com">
+          <plist version="1.0">
+          <dict>
+              <key>CFBundleDisplayName</key>
+              <string>Zaynix Injecta</string>
+              <key>CFBundleName</key>
+              <string>Zaynix</string>
+              <key>CFBundleIdentifier</key>
+              <string>com.zaynix.injecta</string>
+              <key>CFBundleExecutable</key>
+              <string>ThreeOneOSFive</string>
+              <key>CFBundleVersion</key>
+              <string>1.1.1</string>
+              <key>CFBundleShortVersionString</key>
+              <string>1.1.1</string>
+              <key>CFBundlePackageType</key>
+              <string>APPL</string>
+              <key>LSRequiresIPhoneOS</key>
+              <true/>
+              <key>MinimumOSVersion</key>
+              <string>14.0</string>
+          </dict>
+          </plist>
+          EOF
           
-          # Membuat file binary pemicu agar iOS mengenali aplikasi ini sebagai program resmi yang hidup
-          echo '#!/bin/bash' > Zaynix
-          echo 'exit 0' >> Zaynix
-          chmod +x Zaynix
+          # Membuat file binary dummy utama agar GBox mengenali target eksekusi aplikasi
+          echo '#!/bin/bash' > ../Payload/ThreeOneOSFive.app/ThreeOneOSFive
+          chmod +x ../Payload/ThreeOneOSFive.app/ThreeOneOSFive
 
       - name: Package Official IPA File
         run: |
