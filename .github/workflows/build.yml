@@ -26,30 +26,57 @@ jobs:
           mkdir -p "./build"
           ditto -x -k "$ZIP_FILE" "./build"
 
-      - name: Auto Clean and Rebrand Name
+      - name: Force Fix System & Apply Themes
         run: |
           set -euo pipefail
           cd ./build
           
-          # Mengubah sistem internal secara aman langsung di komputer virtual Mac
-          find . -type f \( -name "*.pbxproj" -o -name "*.xcscheme" -o -name "*.swift" -o -name "*.strings" \) -exec sed -i '' 's/OGIOS/ZAYNX/g' {} +
-          find . -type f \( -name "*.pbxproj" -o -name "*.xcscheme" -o -name "*.swift" -o -name "*.strings" \) -exec sed -i '' 's/YAGAMI EXTRENAL/Zaynix Injecta/g' {} +
+          # 1. MEMPERBAIKI STRUKTUR PARSER PBXPROJ YANG RUSAK SECARA OTOMATIS
+          # Mencari file project.pbxproj
+          PBX_FILE=$(find . -name "project.pbxproj" | head -1)
+          if [ -n "$PBX_FILE" ]; then
+            echo "Memperbaiki struktur internal pbxproj..."
+            # Menghapus duplikasi baris atau karakter aneh jika ada akibat edit massal
+            sed -i '' '/=======\|>>>>>>>\|<<<<<<</d' "$PBX_FILE"
+          fi
+          
+          # 2. MENYUNTIKKAN TEMA WARNA BIRU NEON PADA DESIGN SYSTEM
+          # Mengganti warna aksen merah menjadi Biru Neon Terang (0.0, 0.9, 1.0)
+          find . -type f -name "DesignSystem.swift" -exec sed -i '' 's/red: 0.58, green: 0.015, blue: 0.025/red: 0.0, green: 0.9, blue: 1.0/g' {} +
+          # Mengganti warna background pudar menjadi Hitam Kebiruan Gelap (0.01, 0.02, 0.04)
+          find . -type f -name "DesignSystem.swift" -exec sed -i '' 's/red: 0.035, green: 0.008, blue: 0.010/red: 0.01, green: 0.02, blue: 0.04/g' {} +
+          
+          # 3. MEMASTIKAN FOLDER SKEMA MEMAKAI NAMA ZAYNX
+          # Mencari folder xcschemes
+          SCHEME_DIR=$(find . -name "xcschemes" -type d | head -1)
+          if [ -n "$SCHEME_DIR" ]; then
+            cd "$SCHEME_DIR"
+            # Jika masih ada file skema nama lain, paksa ubah menjadi ZAYNX.xcscheme
+            OLD_SCHEME=$(find . -name "*.xcscheme" | head -1)
+            if [ -n "$OLD_SCHEME" ] && [ "$OLD_SCHEME" != "./ZAYNX.xcscheme" ]; then
+              mv "$OLD_SCHEME" "ZAYNX.xcscheme"
+            fi
+            cd -
+          fi
 
-      - name: Build Unsigned Application
+      - name: Force Build ZAYNX Application
         run: |
           set -euo pipefail
           cd ./build
           
           PROJECT=$(find . -name '*.xcodeproj' -type d | head -1 || true)
-          WORKSPACE=$(find . -name '*.xcworkspace' -type d | grep -v '/Pods/' | head -1 || true)
           
-          if [ -n "$WORKSPACE" ]; then
-            SCHEME=$(xcodebuild -list -json -workspace "$WORKSPACE" | /usr/bin/python3 -c 'import json,sys; d=json.load(sys.stdin); print((d.get("workspace",{}).get("schemes") or ["ZAYNX"])[0])')
-            xcodebuild archive -workspace "$WORKSPACE" -scheme "$SCHEME" -sdk iphoneos -configuration Release -archivePath "./App.xcarchive" CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY='' PRODUCT_BUNDLE_IDENTIFIER="com.zaynix.injecta"
-          else
-            SCHEME=$(xcodebuild -list -json -project "$PROJECT" | /usr/bin/python3 -c 'import json,sys; d=json.load(sys.stdin); print((d.get("project",{}).get("schemes") or ["ZAYNX"])[0])')
-            xcodebuild archive -project "$PROJECT" -scheme "$SCHEME" -sdk iphoneos -configuration Release -archivePath "./App.xcarchive" CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY='' PRODUCT_BUNDLE_IDENTIFIER="com.zaynix.injecta"
-          fi
+          # Memaksa build menggunakan skema ZAYNX pilihan Anda tanpa memedulikan eror deteksi otomatis
+          xcodebuild archive \
+            -project "$PROJECT" \
+            -scheme "ZAYNX" \
+            -sdk iphoneos \
+            -configuration Release \
+            -archivePath "./App.xcarchive" \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY='' \
+            PRODUCT_BUNDLE_IDENTIFIER="com.zaynix.injecta"
 
       - name: Package IPA File
         run: |
