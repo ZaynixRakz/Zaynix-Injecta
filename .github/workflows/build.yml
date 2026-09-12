@@ -38,26 +38,36 @@ jobs:
         run: |
           set -euo pipefail
           
-          # Membuat folder Payload resmi dengan huruf P KAPITAL (Wajib hukum Apple)
+          # Membuat folder Payload resmi dengan huruf P KAPITAL
           mkdir -p "./Payload/Zaynix.app"
           
-          # Menyalin seluruh aset visual, kode, dan Info.plist ke dalam struktur .app yang benar
+          # 1. Mencari apakah ada folder berekstensi .app bawaan di dalam ZIP Anda
+          KONTEN_APP=$(find ./build_mentah -type d -name "*.app" | head -1 || true)
           FOLDER_UTAMA=$(find ./build_mentah -type d -name "ThreeOneOSFive" | head -1 || true)
-          if [ -n "$FOLDER_UTAMA" ]; then
+          
+          if [ -n "$KONTEN_APP" ]; then
+            echo "Menyalin folder .app asli..."
+            cp -R "$KONTEN_APP/" "./Payload/Zaynix.app/"
+          elif [ -n "$FOLDER_UTAMA" ]; then
+            echo "Menyalin isi folder ThreeOneOSFive..."
             cp -R "$FOLDER_UTAMA/" "./Payload/Zaynix.app/"
           else
+            echo "Menyalin seluruh isi build mentah..."
             cp -R build_mentah/* ./Payload/Zaynix.app/ 2>/dev/null || true
           fi
           
-          # Menyuntikkan konfigurasi Info.plist agar sistem iOS mengenali identitas Zaynix Injecta
+          # 2. Menyuntikkan identitas Info.plist ke dalam folder aplikasi yang benar
           find ./Payload/Zaynix.app -name "Info.plist" -exec plutil -replace CFBundleDisplayName -string "Zaynix Injecta" {} \; 2>/dev/null || true
           find ./Payload/Zaynix.app -name "Info.plist" -exec plutil -replace CFBundleName -string "Zaynix" {} \; 2>/dev/null || true
           find ./Payload/Zaynix.app -name "Info.plist" -exec plutil -replace CFBundleIdentifier -string "com.zaynix.injecta" {} \; 2>/dev/null || true
           find ./Payload/Zaynix.app -name "Info.plist" -exec plutil -replace CFBundleExecutable -string "ThreeOneOSFive" {} \; 2>/dev/null || true
           find ./Payload/Zaynix.app -name "Info.plist" -exec plutil -replace CFBundlePackageType -string "APPL" {} \; 2>/dev/null || true
           
-          # Membungkus Payload secara presisi sesuai instruksi Apple
-          zip -r "../Zaynix_Injecta_unsigned.ipa" "./Payload"
+          # 3. Membungkus Payload menjadi file .ipa di jalur utama root secara tepat
+          zip -r "Zaynix_Injecta_unsigned.ipa" "./Payload"
+          
+          # Memastikan file berukuran besar sukses diproduksi
+          ls -lh Zaynix_Injecta_unsigned.ipa
 
       - name: Upload Unsigned IPA Artifact
         uses: actions/upload-artifact@v4
