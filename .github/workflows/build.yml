@@ -26,16 +26,25 @@ jobs:
           mkdir -p "./build"
           ditto -x -k "$ZIP_FILE" "./build"
 
-      - name: Safe Auto Rebrand Tampilan & Warna
+      - name: Force Clean System & Apply Neon Blue
         run: |
           set -euo pipefail
           cd ./build
           
-          # Mengubah nama teks tampilan pada file UI (.swift) dan file bahasa (.strings) secara aman di dalam folder
+          # 1. Menghilangkan tanda konflik teks akibat edit massal di Android jika ada
+          PBX_FILE=$(find . -name "project.pbxproj" | head -1 || true)
+          if [ -n "$PBX_FILE" ]; then
+            sed -i '' '/=======\|>>>>>>>\|<<<<<<</d' "$PBX_FILE"
+            # Mengembalikan paksa nama skema internal ke nama bawaan asli agar parser Apple tidak menolak
+            sed -i '' 's/ZAYNIX/OGIOS/g' "$PBX_FILE"
+            sed -i '' 's/ZAYNX/OGIOS/g' "$PBX_FILE"
+          fi
+          
+          # 2. Mengubah nama teks tampilan pada file UI (.swift) dan file bahasa (.strings) secara aman
           find . -type f \( -name "*.swift" -o -name "*.strings" \) -exec sed -i '' 's/YAGAMI EXTRENAL/Zaynix Injecta/g' {} +
           find . -type f \( -name "*.swift" -o -name "*.strings" \) -exec sed -i '' 's/YAGAMIXIOS/ZaynixIOS/g' {} +
           
-          # Menyuntikkan warna tema Biru Neon otomatis ke file DesignSystem
+          # 3. Menyuntikkan warna tema Biru Neon otomatis ke file DesignSystem
           find . -type f -name "DesignSystem.swift" -exec sed -i '' 's/red: 0.58, green: 0.015, blue: 0.025/red: 0.0, green: 0.9, blue: 1.0/g' {} +
           find . -type f -name "DesignSystem.swift" -exec sed -i '' 's/red: 0.035, green: 0.008, blue: 0.010/red: 0.01, green: 0.02, blue: 0.04/g' {} +
 
@@ -44,11 +53,19 @@ jobs:
           set -euo pipefail
           cd ./build
           
-          # Otomatis mendeteksi file proyek meskipun berada di dalam folder berlapis
           PROJECT=$(find . -name '*.xcodeproj' -type d | head -1 || true)
           
-          # Menjalankan kompilasi resmi menggunakan skema asli agar binary mesin Apple terproduksi matang
-          xcodebuild archive -project "$PROJECT" -scheme "OGIOS" -sdk iphoneos -configuration Release -archivePath "../App.xcarchive" CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY='' PRODUCT_BUNDLE_IDENTIFIER="com.zaynix.injecta"
+          # Melakukan kompilasi resmi menggunakan mesin Xcode Apple
+          xcodebuild archive \
+            -project "$PROJECT" \
+            -scheme "OGIOS" \
+            -sdk iphoneos \
+            -configuration Release \
+            -archivePath "../App.xcarchive" \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY='' \
+            PRODUCT_BUNDLE_IDENTIFIER="com.zaynix.injecta"
 
       - name: Package Official IPA File
         run: |
