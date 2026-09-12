@@ -17,10 +17,9 @@ jobs:
       - name: Extract Project File
         run: |
           set -euo pipefail
-          # Mencari dan mengekstrak file ZIP yang ada di dalam repositori
           ZIP_FILE=$(find . -maxdepth 1 -name '*.zip' | head -1)
           if [ -z "$ZIP_FILE" ]; then
-            echo "Error: File ZIP proyek tidak ditemukan di repositori!" >&2
+            echo "Error: File ZIP tidak ditemukan!" >&2
             exit 1
           fi
           mkdir -p "$RUNNER_TEMP/project"
@@ -33,34 +32,20 @@ jobs:
           ROOT="$RUNNER_TEMP/project"
           PROJECT=$(find "$ROOT" -name '*.xcodeproj' -type d | head -1 || true)
           WORKSPACE=$(find "$ROOT" -name '*.xcworkspace' -type d | grep -v '/Pods/' | head -1 || true)
-          
-          if [ -z "$PROJECT" ] && [ -z "$WORKSPACE" ]; then
-            echo "Error: No .xcodeproj or .xcworkspace found." >&2
-            exit 1
-          fi
-          
-          if [ -n "$WORKSPACE" ]; then
-            SCHEME=$(xcodebuild -list -json -workspace "$WORKSPACE" | /usr/bin/python3 -c 'import json,sys; d=json.load(sys.stdin); print((d.get("workspace",{}).get("schemes") or [""])[0])')
-          else
-            SCHEME=$(xcodebuild -list -json -project "$PROJECT" | /usr/bin/python3 -c 'import json,sys; d=json.load(sys.stdin); print((d.get("project",{}).get("schemes") or [""])[0])')
-          fi
-          
           echo "project=$PROJECT" >> "$GITHUB_OUTPUT"
           echo "workspace=$WORKSPACE" >> "$GITHUB_OUTPUT"
-          echo "scheme=$SCHEME" >> "$GITHUB_OUTPUT"
 
       - name: Build Unsigned Archive
         env:
           PROJECT: ${{ steps.locate.outputs.project }}
           WORKSPACE: ${{ steps.locate.outputs.workspace }}
-          SCHEME: ${{ steps.locate.outputs.scheme }}
         run: |
           set -euo pipefail
           ARCHIVE="$RUNNER_TEMP/App.xcarchive"
           if [ -n "$WORKSPACE" ]; then
-            xcodebuild archive -workspace "$WORKSPACE" -scheme "$SCHEME" -sdk iphoneos -configuration Release -archivePath "$ARCHIVE" CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY='' PRODUCT_BUNDLE_IDENTIFIER="com.zaynix.injecta"
+            xcodebuild archive -workspace "$WORKSPACE" -scheme "ZAYNX" -sdk iphoneos -configuration Release -archivePath "$ARCHIVE" CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY='' PRODUCT_BUNDLE_IDENTIFIER="com.zaynix.injecta"
           else
-            xcodebuild archive -project "$PROJECT" -scheme "$SCHEME" -sdk iphoneos -configuration Release -archivePath "$ARCHIVE" CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY='' PRODUCT_BUNDLE_IDENTIFIER="com.zaynix.injecta"
+            xcodebuild archive -project "$PROJECT" -scheme "ZAYNX" -sdk iphoneos -configuration Release -archivePath "$ARCHIVE" CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY='' PRODUCT_BUNDLE_IDENTIFIER="com.zaynix.injecta"
           fi
 
       - name: Package IPA
