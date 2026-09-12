@@ -11,13 +11,20 @@ jobs:
     runs-on: macos-15
     timeout-minutes: 30
     steps:
-      - name: Download Prepared Project
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
+
+      - name: Extract Project File
         run: |
           set -euo pipefail
-          # Mengunduh langsung file ZIP asli dari server MediaFire
-          curl --fail --location --retry 3 --connect-timeout 20 "https://mediafire.com" -o "$RUNNER_TEMP/project.zip"
+          # Mencari dan mengekstrak file ZIP yang ada di dalam repositori
+          ZIP_FILE=$(find . -maxdepth 1 -name '*.zip' | head -1)
+          if [ -z "$ZIP_FILE" ]; then
+            echo "Error: File ZIP proyek tidak ditemukan di repositori!" >&2
+            exit 1
+          fi
           mkdir -p "$RUNNER_TEMP/project"
-          ditto -x -k "$RUNNER_TEMP/project.zip" "$RUNNER_TEMP/project"
+          ditto -x -k "$ZIP_FILE" "$RUNNER_TEMP/project"
 
       - name: Locate Xcode Project
         id: locate
@@ -28,7 +35,7 @@ jobs:
           WORKSPACE=$(find "$ROOT" -name '*.xcworkspace' -type d | grep -v '/Pods/' | head -1 || true)
           
           if [ -z "$PROJECT" ] && [ -z "$WORKSPACE" ]; then
-            echo "No .xcodeproj or .xcworkspace found." >&2
+            echo "Error: No .xcodeproj or .xcworkspace found." >&2
             exit 1
           fi
           
