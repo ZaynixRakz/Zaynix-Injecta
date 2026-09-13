@@ -26,34 +26,28 @@ jobs:
           mkdir -p "./build"
           ditto -x -k "$ZIP_FILE" "./build"
 
-      - name: Force Clean System & Inject Neon Themes
+      - name: Safe Auto Rebrand Tampilan & Warna
         run: |
           set -euo pipefail
           cd ./build
           
-          # 1. Menyeimbangkan struktur database parser Xcode agar kompilasi berjalan mulus
-          PBX_FILE=$(find . -name "project.pbxproj" | head -1 || true)
-          if [ -n "$PBX_FILE" ]; then
-            sed -i '' '/=======\|>>>>>>>\|<<<<<<</d' "$PBX_FILE"
-            sed -i '' 's/ZAYNIX/OGIOS/g' "$PBX_FILE"
-            sed -i '' 's/ZAYNX/OGIOS/g' "$PBX_FILE"
-          fi
-          
-          # 2. Mengubah nama teks tampilan pada file UI (.swift) dan file bahasa (.strings)
+          # Mengubah nama teks tampilan pada file UI (.swift) dan file bahasa (.strings) secara aman tanpa merusak file sistem
           find . -type f \( -name "*.swift" -o -name "*.strings" \) -exec sed -i '' 's/YAGAMI EXTRENAL/Zaynix Injecta/g' {} + 2>/dev/null || true
           find . -type f \( -name "*.swift" -o -name "*.strings" \) -exec sed -i '' 's/YAGAMIXIOS/ZaynixIOS/g' {} + 2>/dev/null || true
           
-          # 3. MENYUNTIKKAN TEMA WARNA BIRU NEON PADA DESIGN SYSTEM
+          # Menyuntikkan warna tema Biru Neon otomatis ke file DesignSystem
           find . -type f -name "DesignSystem.swift" -exec sed -i '' 's/red: 0.58, green: 0.015, blue: 0.025/red: 0.0, green: 0.9, blue: 1.0/g' {} + 2>/dev/null || true
           find . -type f -name "DesignSystem.swift" -exec sed -i '' 's/red: 0.035, green: 0.008, blue: 0.010/red: 0.01, green: 0.02, blue: 0.04/g' {} + 2>/dev/null || true
 
-      - name: Build Official Binary via Xcode
+      - name: Build Official Application via Xcode
         run: |
           set -euo pipefail
           cd ./build
+          
+          # Otomatis mendeteksi file proyek meskipun berada di dalam folder berlapis
           PROJECT=$(find . -name '*.xcodeproj' -type d | head -1 || true)
           
-          # KOMPILASI RESMI DENGAN BUNDLE ID APPLE BYPASS SUPAYA BINARY JADI DAN ANTI FORCE CLOSE
+          # Menjalankan kompilasi resmi menggunakan skema asli agar binary mesin Apple terproduksi matang (ANTI FORCE CLOSE)
           xcodebuild archive \
             -project "$PROJECT" \
             -scheme "OGIOS" \
@@ -65,14 +59,14 @@ jobs:
             CODE_SIGN_IDENTITY='' \
             PRODUCT_BUNDLE_IDENTIFIER="com.apple.mobile.MobileHouseArrest"
 
-      - name: Package Payload Structure
+      - name: Package Official IPA File
         run: |
           set -euo pipefail
           APP_PATH=$(find "./App.xcarchive/Products/Applications" -maxdepth 1 -name '*.app' -type d | head -1)
           mkdir -p "./Payload"
           cp -R "$APP_PATH" "./Payload/"
           
-          # Mengunci pengaturan Info.plist agar resmi bernama Zaynix Injecta
+          # Mengunci konfigurasi Info.plist agar resmi bernama Zaynix Injecta
           find ./Payload -name "Info.plist" -exec plutil -replace CFBundleDisplayName -string "Zaynix Injecta" {} \; 2>/dev/null || true
           
           zip -r "Zaynix_Injecta_unsigned.ipa" "./Payload"
