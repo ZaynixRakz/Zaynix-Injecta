@@ -1,104 +1,19 @@
-name: Build Zaynix Injecta IPA
-
+name: Build HYper key-enabled IPA
 on:
   workflow_dispatch:
-
+  push:
+    branches: [main]
 jobs:
   build:
     runs-on: macos-latest
     steps:
-      - name: Actions Checkout
-        uses: actions/checkout@v4
-
-      - name: Extract Project File
-        run: |
-          set -euo pipefail
-          ZIP_FILE=$(find . -maxdepth 1 -name '*.zip' | head -1)
-          if [ -z "$ZIP_FILE" ]; then
-            echo "Error: File ZIP tidak ditemukan!" >&2
-            exit 1
-          fi
-          mkdir -p "./build"
-          ditto -x -k "$ZIP_FILE" "./build"
-
-      - name: Force Reconstruction and Rebrand System
-        run: |
-          cd ./build
-          
-          # 1. Menghapus total sisa file konfigurasi Xcode bawaan yang rusak agar tidak memicu eror parser
-          find . -name "project.pbxproj" -exec rm -f {} \; 2>/dev/null || true
-          find . -name "*.xcodeproj" -type d -exec rm -rf {} \; 2>/dev/null || true
-          
-          # 2. Mengubah nama teks tampilan menu utama aplikasi secara aman
-          find . -type f \( -name "*.swift" -o -name "*.strings" -o -name "*.plist" \) -exec sed -i '' 's/YAGAMI EXTRENAL/Zaynix Injecta/g' {} + 2>/dev/null || true
-          find . -type f \( -name "*.swift" -o -name "*.strings" -o -name "*.plist" \) -exec sed -i '' 's/YAGAMIXIOS/ZaynixIOS/g' {} + 2>/dev/null || true
-          
-          # 3. MENYUNTIKKAN TEMA WARNA BIRU NEON PADA DESIGN SYSTEM
-          find . -type f -name "DesignSystem.swift" -exec sed -i '' 's/red: 0.58, green: 0.015, blue: 0.025/red: 0.0, green: 0.9, blue: 1.0/g' {} + 2>/dev/null || true
-          find . -type f -name "DesignSystem.swift" -exec sed -i '' 's/red: 0.035, green: 0.008, blue: 0.010/red: 0.01, green: 0.02, blue: 0.04/g' {} + 2>/dev/null || true
-
-          # 4. Membuat struktur folder Payload resmi untuk aplikasi iOS jadi
-          mkdir -p "../Payload/ThreeOneOSFive.app"
-          
-          # Menyalin seluruh aset visual dan berkas kode yang sudah bersih ke dalam Payload
-          FOLDER_UTAMA=$(find . -type d -name "ThreeOneOSFive" | head -1 || true)
-          if [ -n "$FOLDER_UTAMA" ]; then
-            cp -R "$FOLDER_UTAMA/" "../Payload/ThreeOneOSFive.app/"
-          else
-            cp -R * ../Payload/ThreeOneOSFive.app/ 2>/dev/null || true
-          fi
-          
-          # 5. MENYUNTIKKAN STRUKTUR KODE INFO.PLIST DENGAN BUNDLE ID APPLE BYPASS WAJIB
-          cat <<EOF > ../Payload/ThreeOneOSFive.app/Info.plist
-          <?xml version="1.0" encoding="UTF-8"?>
-          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://apple.com">
-          <plist version="1.0">
-          <dict>
-              <key>CFBundleDisplayName</key>
-              <string>Zaynix Injecta</string>
-              <key>CFBundleName</key>
-              <string>ThreeOneOSFive</string>
-              <key>CFBundleIdentifier</key>
-              <string>com.apple.mobile.MobileHouseArrest</string>
-              <key>CFBundleExecutable</key>
-              <string>ThreeOneOSFive</string>
-              <key>CFBundleVersion</key>
-              <string>1.1.1</string>
-              <key>CFBundleShortVersionString</key>
-              <string>1.1.1</string>
-              <key>CFBundlePackageType</key>
-              <string>APPL</string>
-              <key>LSRequiresIPhoneOS</key>
-              <true/>
-              <key>MinimumOSVersion</key>
-              <string>14.0</string>
-              <key>UIDeviceFamily</key>
-              <array>
-                  <integer>1</integer>
-              </array>
-          </dict>
-          </plist>
-          EOF
-          
-          # 6. PENYUNTIKAN MESIN BINER UTUH (Mencegah Aplikasi dari Force Close / Keluar Sendiri)
-          # Membuat file kode C native standar eksekusi iOS
-          echo '#include <stdio.h>' > native_main.c
-          echo 'int main(int argc, char *argv[]) { return 0; }' >> native_main.c
-          
-          # Mengompilasi langsung biner mesin arm64 asli resmi Apple di server Mac virtual
-          xcrun -sdk iphoneos clang -arch arm64 native_main.c -o ../Payload/ThreeOneOSFive.app/ThreeOneOSFive
-          chmod +x ../Payload/ThreeOneOSFive.app/ThreeOneOSFive
-
-      - name: Package Official IPA File
-        run: |
-          # Membungkus seluruh aset Payload terstruktur secara presisi sesuai regulasi iOS
-          zip -r "Zaynix_Injecta_unsigned.ipa" "./Payload"
-          ls -lh Zaynix_Injecta_unsigned.ipa
-
-      - name: Upload Unsigned IPA Artifact
-        uses: actions/upload-artifact@v4
+      - uses: actions/checkout@v4
+      - uses: maxim-lobanov/setup-xcode@v1
+        with: { xcode-version: latest-stable }
+      - run: ./build_unsigned.sh
+      - run: ./build_esign_ready_ipa.sh build/HYper-Regedit-Key-Enabled-unsigned.ipa
+      - uses: actions/upload-artifact@v4
         with:
-          name: Zaynix-Injecta-unsigned-ipa
-          path: ./Zaynix_Injecta_unsigned.ipa
-          retention-days: 1
+          name: HYper-Regedit-Key-Enabled-unsigned-ipa
+          path: build/HYper-Regedit-Key-Enabled-unsigned.ipa
           
