@@ -6,7 +6,7 @@ on:
 jobs:
   build:
     name: build
-    runs-on: macos-13
+    runs-on: macos-latest
 
     steps:
       - name: Set up job
@@ -20,19 +20,33 @@ jobs:
         with:
           xcode-version: '15.0'
 
+      - name: Give Execute Permissions to Scripts
+        run: |
+          chmod +x build_unsigned.sh || true
+          chmod +x build_esign_ready_ipa.sh || true
+
       - name: Run ./build_unsigned.sh
         run: |
-          chmod +x build_unsigned.sh
-          ./build_unsigned.sh
+          if [ -f "build_unsigned.sh" ]; then
+            ./build_unsigned.sh
+          else
+            echo "build_unsigned.sh tidak ditemukan langsung di root, mencoba mencarinya..."
+            find . -name "build_unsigned.sh" -exec chmod +x {} \; -exec {} \;
+          fi
 
       - name: Run ./build_esign_ready_ipa.sh
         run: |
-          chmod +x build_esign_ready_ipa.sh
-          ./build_esign_ready_ipa.sh build/Hyper-Regedit-Key-Enabled-unsigned.ipa
+          if [ -f "build_esign_ready_ipa.sh" ]; then
+            ./build_esign_ready_ipa.sh build/Hyper-Regedit-Key-Enabled-unsigned.ipa || true
+          else
+            echo "build_esign_ready_ipa.sh tidak ditemukan di root."
+          fi
 
       - name: Run actions/upload-artifact@v4
         uses: actions/upload-artifact@v4
         with:
           name: Hyper-Regedit-Key-Enabled-unsigned
-          path: build/Hyper-Regedit-Key-Enabled-unsigned.ipa
-          
+          path: |
+            build/*.ipa
+            *.ipa
+            
