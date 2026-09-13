@@ -18,78 +18,56 @@ jobs:
             echo "Error: File ZIP tidak ditemukan!" >&2
             exit 1
           fi
-          mkdir -p "./build"
-          ditto -x -k "$ZIP_FILE" "./build"
+          mkdir -p "./build_mentah"
+          ditto -x -k "$ZIP_FILE" "./build_mentah"
 
-      - name: Force Reconstruction and Rebrand System
+      - name: Rebrand App Information safely
         run: |
-          cd ./build
+          set -euo pipefail
+          cd ./build_mentah
           
-          # 1. Menghapus total file sistem Xcode bawaan yang rusak
-          find . -name "project.pbxproj" -exec rm -f {} \; 2>/dev/null || true
-          find . -name "*.xcodeproj" -type d -exec rm -rf {} \; 2>/dev/null || true
+          # 1. Mengubah teks informasi tampilan menu luar secara aman langsung di memori server
+          find . -type f \( -name "FFExternal" -o -name "*.strings" -o -name "*.plist" \) -exec sed -i '' 's/FFEX-/ZYNX-/g' {} + 2>/dev/null || true
           
-          # 2. Mengubah nama teks tampilan menu utama aplikasi secara aman
-          find . -type f \( -name "*.swift" -o -name "*.strings" -o -name "*.plist" \) -exec sed -i '' 's/YAGAMI EXTRENAL/Zaynix Injecta/g' {} + 2>/dev/null || true
-          find . -type f \( -name "*.swift" -o -name "*.strings" -o -name "*.plist" \) -exec sed -i '' 's/YAGAMIXIOS/ZaynixIOS/g' {} + 2>/dev/null || true
+          # 2. Memastikan seluruh folder Payload terstruktur dengan standar huruf P Kapital
+          mkdir -p "../Payload"
+          KONTEN_PAYLOAD=$(find . -type d -name "Payload" | head -1 || true)
+          FOLDER_APP=$(find . -type d -name "*.app" | head -1 || true)
           
-          # 3. Menyuntikkan tema warna Biru Neon pada DesignSystem
-          find . -type f -name "DesignSystem.swift" -exec sed -i '' 's/red: 0.58, green: 0.015, blue: 0.025/red: 0.0, green: 0.9, blue: 1.0/g' {} + 2>/dev/null || true
-          find . -type f -name "DesignSystem.swift" -exec sed -i '' 's/red: 0.035, green: 0.008, blue: 0.010/red: 0.01, green: 0.02, blue: 0.04/g' {} + 2>/dev/null || true
-
-          # 4. Membuat struktur folder Payload resmi dengan ekstensi .app (Wajib Apple)
-          mkdir -p "../Payload/ThreeOneOSFive.app"
-          
-          # Mencari lokasi folder utama kode program di mana pun letaknya berada di dalam ZIP Anda
-          FOLDER_UTAMA=$(find . -type d -name "ThreeOneOSFive" | head -1 || true)
-          if [ -n "$FOLDER_UTAMA" ]; then
-            cp -R "$FOLDER_UTAMA/" "../Payload/ThreeOneOSFive.app/"
+          if [ -n "$KONTEN_PAYLOAD" ]; then
+            cp -R "$KONTEN_PAYLOAD/" "../Payload/"
+          elif [ -n "$FOLDER_APP" ]; then
+            cp -R "$FOLDER_APP" "../Payload/"
           else
-            cp -R * ../Payload/ThreeOneOSFive.app/ 2>/dev/null || true
+            mkdir -p "../Payload/FFExternal.app"
+            cp -R * ../Payload/FFExternal.app/ 2>/dev/null || true
           fi
+
+      - name: Inject Valid Info.plist Structure
+        run: |
+          set -euo pipefail
           
-          # 5. MEMBUAT DAN MENULIS ULANG FILE INFO.PLIST DI FOLDER UTAMA AGAR GBOX SUKSES SIGN
-          cat <<EOF > ../Payload/ThreeOneOSFive.app/Info.plist
-          <?xml version="1.0" encoding="UTF-8"?>
-          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://apple.com">
-          <plist version="1.0">
-          <dict>
-              <key>CFBundleDisplayName</key>
-              <string>Zaynix Injecta</string>
-              <key>CFBundleName</key>
-              <string>Zaynix</string>
-              <key>CFBundleIdentifier</key>
-              <string>com.zaynix.injecta</string>
-              <key>CFBundleExecutable</key>
-              <string>ThreeOneOSFive</string>
-              <key>CFBundleVersion</key>
-              <string>1.1.1</string>
-              <key>CFBundleShortVersionString</key>
-              <string>1.1.1</string>
-              <key>CFBundlePackageType</key>
-              <string>APPL</string>
-              <key>LSRequiresIPhoneOS</key>
-              <true/>
-              <key>MinimumOSVersion</key>
-              <string>14.0</string>
-          </dict>
-          </plist>
-          EOF
+          # Mengambil jalur folder .app yang sebenarnya di dalam struktur Payload
+          APP_TARGET=$(find ./Payload -maxdepth 1 -name "*.app" -type d | head -1)
           
-          # Membuat file binary dummy utama agar GBox mengenali target eksekusi aplikasi
-          echo '#!/bin/bash' > ../Payload/ThreeOneOSFive.app/ThreeOneOSFive
-          chmod +x ../Payload/ThreeOneOSFive.app/ThreeOneOSFive
+          # Menyuntikkan identitas Info.plist resmi agar GBox/ESign sukses melakukan proses Tanda Tangan (Sign)
+          plutil -replace CFBundleDisplayName -string "Zaynix Injecta" "$APP_TARGET/Info.plist" 2>/dev/null || true
+          plutil -replace CFBundleName -string "Zaynix" "$APP_TARGET/Info.plist" 2>/dev/null || true
+          plutil -replace CFBundleIdentifier -string "com.zaynix.injecta" "$APP_TARGET/Info.plist" 2>/dev/null || true
+          plutil -replace CFBundleExecutable -string "FFExternal" "$APP_TARGET/Info.plist" 2>/dev/null || true
+          plutil -replace CFBundlePackageType -string "APPL" "$APP_TARGET/Info.plist" 2>/dev/null || true
+          plutil -replace MinimumOSVersion -string "14.0" "$APP_TARGET/Info.plist" 2>/dev/null || true
 
       - name: Package Official IPA File
         run: |
-          # Membungkus seluruh aset Payload sehat secara presisi sesuai instruksi Apple
-          zip -r "Zaynix_Injecta_unsigned.ipa" "./Payload"
-          ls -lh Zaynix_Injecta_unsigned.ipa
+          # Membungkus kembali struktur aplikasi jadi ke format .ipa resmi
+          zip -r "Zaynix_Injecta_rebranded.ipa" "./Payload"
+          ls -lh Zaynix_Injecta_rebranded.ipa
 
       - name: Upload Unsigned IPA Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: Zaynix-Injecta-unsigned-ipa
-          path: ./Zaynix_Injecta_unsigned.ipa
+          name: Zaynix-Injecta-rebranded-ipa
+          path: ./Zaynix_Injecta_rebranded.ipa
           retention-days: 1
           
